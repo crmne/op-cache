@@ -84,7 +84,7 @@ Cache Statistics:
 ```
 ┌─────────────┐                      ┌─────────────┐
 │  op-cache   │◄── Unix Socket ────►│   Daemon    │
-│  (client)   │   /tmp/op-cache.sock │  (cache)    │
+│  (client)   │   $XDG_RUNTIME_DIR/op-cache/op-cache.sock │  (cache)    │
 └──────┬──────┘                      └─────────────┘
        │
        │ cache miss
@@ -106,7 +106,7 @@ The client (not the daemon) executes `op read`. This ensures proper access to yo
 Config file: `~/.config/op-cache/config.yaml`
 
 ```yaml
-socket_path: /tmp/op-cache.sock
+socket_path: /run/user/1000/op-cache/op-cache.sock
 ttl_seconds: 86400      # Cache TTL (default: 24 hours)
 max_entries: 1000       # Max cached secrets
 op_path: op             # Path to op CLI

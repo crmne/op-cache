@@ -26,10 +26,7 @@ pub fn collect_op_refs(env: &[(String, String)]) -> Vec<&str> {
 
 /// Resolves all op:// references concurrently (bounded) through the cache.
 /// Returns a map from reference string to resolved value.
-pub async fn resolve_refs(
-    client: &Client,
-    refs: &[&str],
-) -> Result<HashMap<String, String>> {
+pub async fn resolve_refs(client: &Client, refs: &[&str]) -> Result<HashMap<String, String>> {
     let results: Vec<_> = stream::iter(refs.iter().copied())
         .map(|reference| async move {
             let result = client.read(reference).await;

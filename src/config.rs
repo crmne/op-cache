@@ -1,5 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::Path;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,7 +23,14 @@ pub struct Config {
 }
 
 fn default_socket_path() -> PathBuf {
-    PathBuf::from("/tmp/op-cache.sock")
+    default_runtime_dir().join("op-cache.sock")
+}
+
+fn default_runtime_dir() -> PathBuf {
+    match std::env::var("XDG_RUNTIME_DIR") {
+        Ok(dir) if !dir.trim().is_empty() => PathBuf::from(dir).join("op-cache"),
+        _ => PathBuf::from(format!("/tmp/op-cache-{}", unsafe { libc::geteuid() })),
+    }
 }
 
 fn default_ttl_seconds() -> u64 {
@@ -79,5 +88,38 @@ impl Config {
 
     pub fn log_path(&self) -> PathBuf {
         self.socket_path.with_extension("log")
+    }
+
+    pub fn runtime_dir(&self) -> PathBuf {
+        self.socket_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(default_runtime_dir)
+    }
+
+    pub fn ensure_runtime_dir_secure(&self) -> Result<()> {
+        let dir = self.runtime_dir();
+        std::fs::create_dir_all(&dir)?;
+
+        let metadata = std::fs::symlink_metadata(&dir)?;
+        if !metadata.is_dir() {
+            anyhow::bail!("runtime path is not a directory: {:?}", dir);
+        }
+
+        let expected_uid = unsafe { libc::geteuid() };
+        if metadata.uid() != expected_uid {
+            anyhow::bail!(
+                "runtime directory must be owned by uid {}: {:?}",
+                expected_uid,
+                dir
+            );
+        }
+
+        let mode = metadata.permissions().mode() & 0o777;
+        if mode != 0o700 {
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+        }
+
+        Ok(())
     }
 }

@@ -3,6 +3,7 @@ pub mod server;
 
 use std::fs::File;
 use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 
 use fork::{daemon, Fork};
 use tracing::info;
@@ -43,9 +44,13 @@ pub fn run_foreground(config: Config) -> Result<(), Error> {
 }
 
 fn run_daemon(config: Config) -> Result<(), Error> {
+    config
+        .ensure_runtime_dir_secure()
+        .map_err(|e| Error::Internal(format!("failed to prepare runtime directory: {}", e)))?;
+
     // Setup logging to file
     let log_path = config.log_path();
-    let file = File::create(&log_path)
+    let file = open_secure_file(&log_path)
         .map_err(|e| Error::Internal(format!("failed to create log file: {}", e)))?;
 
     tracing_subscriber::fmt()
@@ -59,9 +64,13 @@ fn run_daemon(config: Config) -> Result<(), Error> {
 }
 
 fn run_daemon_inner(config: Config) -> Result<(), Error> {
+    config
+        .ensure_runtime_dir_secure()
+        .map_err(|e| Error::Internal(format!("failed to prepare runtime directory: {}", e)))?;
+
     // Write PID file
     let pid_path = config.pid_path();
-    let mut pid_file = File::create(&pid_path)
+    let mut pid_file = open_secure_file(&pid_path)
         .map_err(|e| Error::Internal(format!("failed to create pid file: {}", e)))?;
     writeln!(pid_file, "{}", std::process::id())
         .map_err(|e| Error::Internal(format!("failed to write pid: {}", e)))?;
@@ -79,6 +88,16 @@ fn run_daemon_inner(config: Config) -> Result<(), Error> {
         let server = Server::new(config);
         server.run().await
     })
+}
+
+fn open_secure_file(path: &std::path::Path) -> std::io::Result<File> {
+    std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
 }
 
 /// Check if daemon is running by checking PID file and process

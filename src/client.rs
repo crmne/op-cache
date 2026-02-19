@@ -1,4 +1,5 @@
 use std::time::Duration;
+use std::{io, os::fd::AsRawFd};
 
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -18,9 +19,11 @@ impl Client {
     }
 
     async fn connect(&self) -> Result<UnixStream, Error> {
-        UnixStream::connect(&self.config.socket_path)
+        let stream = UnixStream::connect(&self.config.socket_path)
             .await
-            .map_err(Error::ConnectionFailed)
+            .map_err(Error::ConnectionFailed)?;
+        validate_peer_uid(&stream)?;
+        Ok(stream)
     }
 
     async fn send_request(&self, request: Request) -> Result<Response, Error> {
@@ -134,4 +137,35 @@ impl Client {
             _ => Err(Error::Protocol("unexpected response".to_string())),
         }
     }
+}
+
+fn validate_peer_uid(stream: &UnixStream) -> Result<(), Error> {
+    let mut creds = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+    let rc = unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            &mut creds as *mut _ as *mut libc::c_void,
+            &mut len,
+        )
+    };
+    if rc != 0 {
+        return Err(Error::ConnectionFailed(io::Error::last_os_error()));
+    }
+
+    let expected_uid = unsafe { libc::geteuid() };
+    if creds.uid != expected_uid {
+        return Err(Error::Internal(format!(
+            "daemon peer uid mismatch: expected {}, got {}",
+            expected_uid, creds.uid
+        )));
+    }
+
+    Ok(())
 }
