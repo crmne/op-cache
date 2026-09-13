@@ -131,6 +131,10 @@ All settings are optional - sensible defaults are used.
 - `op-cache clear` immediately purges all cached secrets
 - Daemon stops cleanly on `op-cache stop` or system shutdown
 
+## Packaging maintenance
+
+Release packaging uses the [native-packages](https://rubygems.org/gems/native-packages) gem. `native-packages.yaml` declares packages and downstream repositories; native recipes and installation assets live in `packaging/`; see [PACKAGING.md](PACKAGING.md) for local commands and CI behavior.
+
 ## License
 
 MIT

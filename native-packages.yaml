@@ -1,0 +1,65 @@
+# Shared CLI: gem install native-packages --version 0.2.0
+---
+schema: 1
+tool:
+  version: 0.2.0
+  nfpm: 2.47.0
+nfpm:
+  name: op-cache
+  maintainer: Carmine Paolino <carmine@paolino.me>
+  homepage: https://github.com/crmne/op-cache
+  description: Caching proxy for the 1Password CLI
+  license: MIT
+  contents:
+  - src: "@PAYLOAD@/op-cache-v@VERSION@-@TARGET@/op-cache"
+    dst: "/usr/bin/op-cache"
+    file_info:
+      mode: 493
+  - src: "@PAYLOAD@/op-cache-v@VERSION@-@TARGET@/LICENSE"
+    dst: "/usr/share/licenses/op-cache/LICENSE"
+    file_info:
+      mode: 420
+  - src: "@PAYLOAD@/op-cache-v@VERSION@-@TARGET@/README.md"
+    dst: "/usr/share/doc/op-cache/README.md"
+    file_info:
+      mode: 420
+  overrides:
+    deb:
+      depends:
+      - libc6 (>= 2.39)
+      - libgcc-s1
+    rpm:
+      depends:
+      - glibc >= 2.39
+      - libgcc
+  rpm:
+    buildhost: github-actions
+targets:
+  linux-amd64:
+    platform: linux
+    arch: amd64
+    libc: glibc
+    compiler_target: x86_64-unknown-linux-gnu
+    formats:
+    - deb
+    - rpm
+    input:
+      local: dist/op-cache-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+      release_asset: op-cache-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+  linux-arm64:
+    platform: linux
+    arch: arm64
+    libc: glibc
+    compiler_target: aarch64-unknown-linux-gnu
+    formats:
+    - deb
+    - rpm
+    input:
+      local: dist/op-cache-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+      release_asset: op-cache-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+release:
+  repository: crmne/op-cache
+  checksums: checksums.txt
+templates: {}
+repositories: {}
+version_file: Cargo.toml
